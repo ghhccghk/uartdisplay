@@ -31,6 +31,7 @@ sleep 2
 echo "JUMP($setjump);\r\n" > $tty
 
 sleep 2
+##写入固件版本
 echo "SET_TXT(1,'$txt1');\r\n"  > $tty
 
 sleep 0.1
@@ -39,7 +40,6 @@ sleep 0.1
 
 while true
 do
-
 
 #cpu使用率读取
 cpu1=$(echo $(top -b -n 1 | grep CPU | awk '{print $2}' | cut -f 1 -d ".") | cut -c 1-3)
@@ -65,8 +65,18 @@ sfpopticalpower=$(ethtool -m eth1 | grep 'Receiver signal average optical power 
 #配置获取的ip的端口
 ipvtgetport="pppoe-WAN1"
 ipv4=$(ifconfig pppoe-WAN1 | grep 'inet addr:' | grep -oE '([0-9]{1,3}.){3}.[0-9]{1,3}' | head -n 1 )
-netrx=$(/bin/net.sh br-lan)
-nettx=$(/bin/net1.sh br-lan)
+
+#配置获取网速的端口
+ethn=br-lan
+
+#读取网速
+
+#发送
+RX_pre=$(cat /proc/net/dev | grep $ethn | sed 's/:/ /g' | awk '{print $2}')
+
+#接收
+TX_pre=$(cat /proc/net/dev | grep $ethn | sed 's/:/ /g' | awk '{print $10}')
+
 
 #文本信息
 txt0=""
@@ -75,14 +85,13 @@ txt3="WIFI温度:$wifitp3"
 txt4="CPU温度:$cputp°C"
 txt5=""
 txt6="IPv4地址：$ipv4"
-txt7="网速：$netrx"
 txt8=""
 txt9="电压：$sfpv"
 txt10="温度：$sfpt°C"
 txt11="激光偏置电流：$sfpbiascurrent"
 txt12="激光输出功率：$sfpoutputpower"
 txt13="接收光功率:$sfpopticalpower"
-txt14="$nettx"
+
 txt15="CPU使用率:$cpu1"
 
 echo "SET_TXT(6,'$txt6');\r\n" > $tty
@@ -103,17 +112,49 @@ echo "SET_TXT(4,'$txt4');\r\n"  > $tty
 
 sleep 0.2
 
+echo "SET_TXT(9,'$txt9');\r\n" > $tty
+
+sleep 0.2
+
+#发送
+RX_next=$(cat /proc/net/dev | grep $ethn | sed 's/:/ /g' | awk '{print $2}')
+#接收
+TX_next=$(cat /proc/net/dev | grep $ethn | sed 's/:/ /g' | awk '{print $10}')
+
+#网速计算
+RX=$((${RX_next}-${RX_pre}))
+TX=$((${TX_next}-${TX_pre}))
+
+#计算发送网速
+if [[ $RX -lt 1024 ]];then
+    RX="${RX}B/s"
+elif [[ $RX -gt 1048576 ]];then
+    RX=$(echo $RX | awk '{print $1/1048576 "MB/s"}')
+else
+    RX=$(echo $RX | awk '{print $1/1024 "KB/s"}')
+fi
+
+#计算接收网速
+if [[ $TX -lt 1024 ]];then
+    TX="${TX}B/s"
+elif [[ $TX -gt 1048576 ]];then
+    TX=$(echo $TX | awk '{print $1/1048576 "MB/s"}')
+else
+    TX=$(echo $TX | awk '{print $1/1024 "KB/s"}')
+fi
+####网速显示
+txt7="网速：RX:$RX"
+txt14="TX:$TX"
+
 echo "SET_TXT(7,'$txt7');\r\n"  > $tty
 
 sleep 0.2
 
 echo "SET_TXT(14,'$txt14');\r\n" > $tty
+####不要随便更改位置
 
 sleep 0.2
 
-echo "SET_TXT(9,'$txt9');\r\n" > $tty
-
-sleep 0.2
 
 echo "SET_TXT(10,'$txt10');\r\n"  > $tty
 
